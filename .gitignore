@@ -1,5 +1,24 @@
-linux-6.17.1
-linux-6.17.1.tar.xz
 disks
-note.idea
-bin/
+
+# Linux Kernel sources / archive
+linux-*/
+*.tar.xz
+
+# Artefacts de build du module (Kbuild) - (module/)
+module/*.o
+module/*.ko
+module/*.mod
+module/*.mod.c
+module/Module.symvers
+module/modules.order
+module/.*.cmd
+module/.tmp_versions/
+
+*.o
+*.ko
+*.mod
+*.mod.c
+Module.symvers
+modules.order
+.*.cmd
+.tmp_versions/

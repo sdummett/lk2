@@ -18,12 +18,19 @@ if [[ -z "$LINUX_KERNEL_IMAGE" || -z "$ROOTFS_IMG" ]]; then
 fi
 
 # on lance le kernel avec un rootfs grace a qemu
+# qemu-system-x86_64 \
+#   -kernel $LINUX_KERNEL_IMAGE \
+#   -append "root=/dev/vda rw console=ttyS0" \
+#   -drive file=$ROOTFS_IMG,if=virtio,format=raw \
+#   -m 1024 \
+#   -nographic
+
 qemu-system-x86_64 \
-  -kernel $LINUX_KERNEL_IMAGE \
-  -append "root=/dev/vda rw console=ttyS0" \
-  -drive file=$ROOTFS_IMG,if=virtio,format=raw \
+  -kernel "$LINUX_KERNEL_IMAGE" \
+  -append "root=/dev/vda rw console=tty0 console=ttyS0" \
+  -drive file="$ROOTFS_IMG",if=virtio,format=raw \
   -m 1024 \
-  -nographic
+  -serial mon:stdio
 
 # Bonus: la commande pour lancer le noyau sans root filesystem
 #qemu-system-x86_64 \

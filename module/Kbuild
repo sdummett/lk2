@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
+
+obj-m += lk2.o
+lk2-objs := lk2_main.o
