@@ -5,6 +5,9 @@
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/fs.h>
+#include <linux/kernel.h>
+#include <linux/input-event-codes.h>
+#include <linux/string.h>
 
 // ----- lk2_main.c ----- //
 
@@ -55,5 +58,20 @@ void lk2_ring_push(struct lk2_ring *r, const struct lk2_entry *e);
 u32 lk2_ring_count(struct lk2_ring *r);
 // Copy up to max entries into dst in chronological order; returns copied count.
 u32 lk2_ring_snapshot(struct lk2_ring *r, struct lk2_entry *dst, u32 max);
+
+// Formatting API
+
+// Key state
+enum lk2_state
+{
+	LK2_RELEASED = 0,
+	LK2_PRESSED = 1,
+};
+
+size_t lk2_format_line(const struct lk2_entry *e, char *dst, size_t dst_len);
+// Returns a stable, English key name for a keycode (may be "Unknown").
+const char *lk2_key_name(u16 keycode);
+// Returns a layout-dependent ASCII char (0 if none).
+char lk2_keycode_to_ascii(u16 keycode, bool shift_down);
 
 #endif // LK2_H
