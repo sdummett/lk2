@@ -99,10 +99,8 @@ const char *lk2_key_name(u16 keycode)
 	return "Unknown";
 }
 
-/*
- * ASCII conversion (layout-dependent)
- * This mapping assumes a US QWERTY keyboard
- */
+// ASCII conversion (layout-dependent)
+// This mapping assumes a US QWERTY keyboard
 static const char lk2_ascii_noshift[KEY_MAX + 1] = {
 	[KEY_A] = 'a',
 	[KEY_B] = 'b',

