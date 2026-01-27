@@ -13,7 +13,6 @@
 #include <linux/timekeeping.h>
 #include <linux/time64.h>
 
-
 // Main - Misc Device
 
 // Device node name created by lk2_main.c via miscdevice
@@ -28,8 +27,8 @@ struct lk2_file_ctx
 // Ring API
 
 // Tunables
-#define LK2_RING_SIZE 1024u	 // number of stored entries
-#define LK2_MAX_LINE_LEN 96u // max formatted line length (incl '\n', excl '\0')
+#define LK2_RING_INIT_CAP 1024u // initial capacity (grows as needed)
+#define LK2_MAX_LINE_LEN 96u	// max formatted line length (incl '\n', excl '\0')
 
 // Timestamp stored as HH:MM:SS
 struct lk2_time
@@ -48,18 +47,19 @@ struct lk2_entry
 	char ascii;	 // 0 if not representable (layout-dependent)
 };
 
-// Ring buffer container
+// Dynamic buffer container (unlimited size)
 struct lk2_ring
 {
-	struct lk2_entry buf[LK2_RING_SIZE];
-	u32 head;		 // next write index
-	u32 count;		 // number of valid entries (<= LK2_RING_SIZE)
-	spinlock_t lock; // protects head/count/buf
+	struct lk2_entry *buf;
+	u32 capacity;	 // allocated size
+	u32 count;		 // number of valid entries
+	spinlock_t lock; // protects buf/capacity/count
 };
 
 // Ring API
 
-void lk2_ring_init(struct lk2_ring *r);
+int lk2_ring_init(struct lk2_ring *r);
+void lk2_ring_destroy(struct lk2_ring *r);
 void lk2_ring_push(struct lk2_ring *r, const struct lk2_entry *e);
 u32 lk2_ring_count(struct lk2_ring *r);
 // Copy up to max entries into dst in chronological order; returns copied count.
