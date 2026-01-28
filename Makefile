@@ -30,7 +30,6 @@ JOBS  := $(shell if [ $(NPROC) -gt 1 ]; then echo $$(( $(NPROC) - 1 )); else ech
         linux run dev dev-busybox dev-kernel \
         rootfs rootfs-reinstall rootfs-add \
         module module-clean module-install dev-module \
-        vm-install vm-launch \
         clean fclean
 
 all: dev
@@ -130,13 +129,6 @@ module-install: module rootfs
 # build .ko -> inject -> run qemu
 dev-module: linux module-install
 	@$(MAKE) run
-
-# ---------- VM (if needed) ----------
-vm-install:
-	./scripts/vm.sh --install ./disks/debian.img
-
-vm-launch:
-	./scripts/vm.sh --launch ./disks/debian.img
 
 # ---------- Cleaning ----------
 clean:

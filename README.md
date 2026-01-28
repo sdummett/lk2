@@ -18,7 +18,7 @@ LK2 is a Linux kernel module that implements a keyboard event logger. It capture
 
 - Captures all keyboard press and release events
 - Logs timestamp (HH:MM:SS), key name, key code, and state
-- Stores events in a lock-protected ring buffer (1024 entries)
+- Stores events in a lock-protected dynamic buffer (unlimited, starts at 1024)
 - Exposes logs via `/dev/keylogs` misc device
 - Prints a summary of typed characters on module unload
 
@@ -36,12 +36,13 @@ LK2 is a Linux kernel module that implements a keyboard event logger. It capture
 ├── Makefile              # Main build system
 ├── module/
 │   ├── Kbuild            # Kernel build configuration
+│   ├── Makefile          # Out-of-tree build helper
 │   ├── lk2.h             # Shared header and data structures
 │   ├── lk2_main.c        # Module init/exit, misc device ops
 │   ├── lk2_input.c       # Input subsystem handler
 │   ├── lk2_ring.c        # Ring buffer implementation
 │   └── lk2_format.c      # Key name mapping and formatting
-├── scripts/              # Helper scripts for VM and rootfs
+├── scripts/              # Helper scripts for rootfs and QEMU
 └── disks/                # Generated disk images
 ```
 
