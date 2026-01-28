@@ -87,6 +87,33 @@ cat /dev/keylogs
 rmmod lk2
 ```
 
+### Testing on Host System
+
+You can also build and test the module directly on your current Linux system without QEMU.
+
+**Install kernel headers:**
+
+Debian/Ubuntu:
+```bash
+sudo apt install -y linux-headers-$(uname -r)
+```
+
+RHEL-family:
+```bash
+sudo dnf install -y kernel-devel-$(uname -r)
+```
+
+**Build and load:**
+```bash
+cd module/
+make
+sudo insmod lk2.ko
+cat /dev/keylogs
+sudo rmmod lk2
+```
+
+The summary is also written to `/tmp/keylogs_final.log` on unload.
+
 ### Log Format
 
 Each entry follows the format:
