@@ -6,6 +6,8 @@
 
 LK2 is a Linux kernel module that implements a keyboard event logger. It captures all keyboard events through the Linux input subsystem and exposes them via a misc device at `/dev/keylogs`.
 
+The patterns exercised here (misc device registration, hooking into the input subsystem, and locking correctly across interrupt/atomic and process context) are the same building blocks used in real peripheral drivers such as GPIO, UART, or I2C on embedded Linux targets.
+
 **This project is strictly for educational purposes to understand:**
 - Linux kernel module development
 - Device driver architecture
@@ -168,6 +170,14 @@ struct lk2_entry {
     char ascii;           // ASCII value (if printable)
 };
 ```
+
+## Design Decisions
+
+- **Misc device instead of a full char device.** Registering a `struct miscdevice` with a dynamic minor avoids the boilerplate of `cdev`/major number management, which is unnecessary for a single, simple read-only log device.
+- **Dynamic ring buffer instead of a fixed-size one.** Starting at `LK2_RING_INIT_CAP` entries and growing on demand means no keyboard events are silently dropped once a fixed cap is hit, at the cost of unbounded memory growth (acceptable for an educational tool, not for production).
+- **Spinlock instead of a mutex in `lk2_ring.c`.** `lk2_event()` (the input handler callback) can run in interrupt/atomic context, where sleeping locks such as mutexes are not allowed. A spinlock with `spin_lock_irqsave`/`spin_unlock_irqrestore` is the correct primitive here since it never sleeps and also disables local interrupts while held.
+- **Allocation happens outside the spinlock during buffer growth.** `kvmalloc_array()` can sleep (`GFP_KERNEL`), which is illegal while holding a spinlock. `lk2_ring_push()` therefore releases the lock before allocating the larger buffer, then reacquires it and re-checks the capacity (double-checked locking) before committing the new buffer, so the allocation never happens in atomic context.
+- **Snapshot on `open()` instead of holding the lock during `read()`.** `keylogs_open()` copies the ring into a private buffer once, so `keylogs_read()` can safely call `simple_read_from_buffer()` (which performs `copy_to_user()` and can fault/sleep) without ever holding the spinlock across a user-space copy.
 
 ## Disclaimer
 
